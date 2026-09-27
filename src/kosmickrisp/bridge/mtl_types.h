@@ -11,6 +11,7 @@
 #define KK_MTL_TYPES_H 1
 
 #include <stddef.h> /* For size_t definition */
+#include <stdint.h>
 
 /** HANDLES */
 typedef void mtl_device;
@@ -324,6 +325,11 @@ enum mtl_language_version {
    MTL_LANGUAGE_VERSION_4_1 = 0x40001,
 };
 
+enum mtl_sparse_texture_mapping_mode {
+   MTL_SPARSE_TEXTURE_MAPPING_MODE_MAP = 0,
+   MTL_SPARSE_TEXTURE_MAPPING_MODE_UNMAP = 1,
+};
+
 /** STRUCTURES */
 struct mtl_range {
    size_t offset;
@@ -394,6 +400,12 @@ struct mtl_feedback_data {
    double gpu_start;
    double gpu_end;
    enum mtl_command_queue_error error;
+};
+
+struct mtl_update_sparse_buffer_mapping_operation {
+   enum mtl_sparse_texture_mapping_mode mode;
+   struct mtl_range buffer_range;
+   uint64_t heap_offset;
 };
 
 #endif /* KK_MTL_TYPES_H */

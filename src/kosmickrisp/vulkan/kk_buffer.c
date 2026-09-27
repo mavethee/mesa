@@ -22,6 +22,9 @@ kk_get_buffer_alignment(const struct kk_physical_device *pdev, uint64_t size,
    mtl_heap_buffer_size_and_align_with_length(pdev->mtl_dev_handle, &size,
                                               &alignment);
 
+   if (create_flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT)
+      alignment = MAX2(alignment, KK_BUFFER_SPARSE_TILE_SIZE);
+
    /** TODO_KOSMICKRISP Metal requires that texel buffers be aligned to the
     * format they'll use. Since we won't be able to know the format until the
     * view is created, we should align to the worst case scenario. For this, we
@@ -46,6 +49,22 @@ kk_CreateBuffer(VkDevice device, const VkBufferCreateInfo *pCreateInfo,
    if (!buffer)
       return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   if (pCreateInfo->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT) {
+      buffer->metal.handle = mtl_new_buffer_with_length_sparse(
+         dev->mtl_handle, buffer->vk.size);
+      buffer->metal.offset = 0u;
+      if (!buffer->metal.handle) {
+         vk_buffer_destroy(&dev->vk, pAllocator, &buffer->vk);
+         return vk_error(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+      }
+
+      buffer->vk.device_address =
+         mtl_buffer_get_gpu_address(buffer->metal.handle);
+
+      kk_device_add_buffer_to_residency_set(dev, buffer->metal.handle);
+      buffer->sparse = true;
+   }
+
    *pBuffer = kk_buffer_to_handle(buffer);
 
    return VK_SUCCESS;
@@ -60,6 +79,9 @@ kk_DestroyBuffer(VkDevice device, VkBuffer _buffer,
 
    if (!buffer)
       return;
+
+   if (buffer->sparse)
+      kk_device_remove_buffer_from_residency_set(dev, buffer->metal.handle);
 
    if (buffer->metal.handle)
       mtl_release(buffer->metal.handle);

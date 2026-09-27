@@ -42,4 +42,9 @@ void mtl_command_queue_wait_for_drawable(mtl_command_queue *queue,
 void mtl_command_queue_signal_drawable(mtl_command_queue *queue,
                                        void *drawable);
 
+void mtl_command_queue_update_buffer_mappings(
+    mtl_command_queue *queue, mtl_buffer *buffer, mtl_heap *heap,
+    struct mtl_update_sparse_buffer_mapping_operation *operations,
+    uint32_t count);
+
 #endif /* MTL_COMMAND_QUEUE_H */

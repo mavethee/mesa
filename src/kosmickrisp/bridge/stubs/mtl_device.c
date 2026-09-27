@@ -157,6 +157,12 @@ mtl_new_buffer_with_bytes_no_copy(mtl_device *device, void *ptr,
    return NULL;
 }
 
+mtl_buffer *
+mtl_new_buffer_with_length_sparse(mtl_device *device, uint64_t size_B)
+{
+   return NULL;
+}
+
 mtl_command_allocator *
 mtl_new_command_allocator(mtl_device *device)
 {

@@ -128,3 +128,27 @@ mtl_command_queue_signal_drawable(mtl_command_queue *queue, void *drawable)
       [q signalDrawable:d];
    }
 }
+
+void
+mtl_command_queue_update_buffer_mappings(
+    mtl_command_queue *queue, mtl_buffer *buffer, mtl_heap *heap,
+    struct mtl_update_sparse_buffer_mapping_operation *operations,
+    uint32_t count)
+{
+   @autoreleasepool {
+      id<MTL4CommandQueue> q = (id<MTL4CommandQueue>)queue;
+      id<MTLBuffer> b = (id<MTLBuffer>)buffer;
+      id<MTLHeap> h = (id<MTLHeap>)heap;
+
+      MTL4UpdateSparseBufferMappingOperation *ops =
+         malloc(count * sizeof(MTL4UpdateSparseBufferMappingOperation));
+      for (uint32_t i = 0; i < count; i++) {
+          ops[i].mode = (MTLSparseTextureMappingMode)operations[i].mode;
+          ops[i].bufferRange = NSMakeRange(operations[i].buffer_range.offset, operations[i].buffer_range.length);
+          ops[i].heapOffset = operations[i].heap_offset;
+      }
+
+      [q updateBufferMappings:b heap:h operations:ops count:count];
+      free(ops);
+   }
+}

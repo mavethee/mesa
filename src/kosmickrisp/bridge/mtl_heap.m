@@ -24,6 +24,7 @@ mtl_new_heap(mtl_device *device, uint64_t size,
       descriptor.resourceOptions = (MTLResourceOptions)resource_options;
       descriptor.size = size;
       descriptor.sparsePageSize = MTLSparsePageSize16;
+      descriptor.maxCompatiblePlacementSparsePageSize = MTLSparsePageSize16;
       return [dev newHeapWithDescriptor:descriptor];
    }
 }
