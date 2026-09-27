@@ -24,6 +24,8 @@ struct kk_buffer {
        * offset calculations through kk_buffer_mtl_offset */
       uint64_t offset;
    } metal;
+
+   bool sparse;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(kk_buffer, vk.base, VkBuffer,

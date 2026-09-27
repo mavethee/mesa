@@ -258,6 +258,8 @@ kk_get_device_features(
       .shaderStorageImageWriteWithoutFormat = true,
       .shaderTessellationAndGeometryPointSize = true,
       .shaderUniformBufferArrayDynamicIndexing = true,
+      .sparseBinding = true,
+      .sparseResidencyBuffer = true,
       .tessellationShader = true,
       .textureCompressionASTC_LDR = true,
       .textureCompressionBC = true,
@@ -1202,7 +1204,8 @@ kk_enumerate_physical_devices(struct vk_instance *_instance)
 
    pdev->queue_families[pdev->queue_family_count++] = (struct kk_queue_family){
       .queue_flags =
-         VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
+         VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT |
+         VK_QUEUE_SPARSE_BINDING_BIT,
       .queue_count = 1,
    };
    assert(pdev->queue_family_count <= ARRAY_SIZE(pdev->queue_families));

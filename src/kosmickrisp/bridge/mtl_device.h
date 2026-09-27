@@ -66,6 +66,8 @@ struct mtl_size mtl_sparse_tile_count(mtl_device *device,
 /* Resource creation */
 mtl_buffer *mtl_new_buffer_with_bytes_no_copy(mtl_device *device, void *ptr,
                                               uint64_t size_B);
+mtl_buffer *mtl_new_buffer_with_length_sparse(mtl_device *device,
+                                              uint64_t size_B);
 mtl_command_allocator *mtl_new_command_allocator(mtl_device *device);
 mtl_command_buffer *mtl_new_command_buffer(mtl_device *device);
 

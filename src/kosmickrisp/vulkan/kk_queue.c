@@ -173,6 +173,85 @@ unlock:
 }
 
 static VkResult
+kk_sparse_buffer_bind_memory(struct kk_queue *queue,
+                             const VkSparseBufferMemoryBindInfo *bind)
+{
+   VK_FROM_HANDLE(kk_buffer, buffer, bind->buffer);
+
+   struct mtl_update_sparse_buffer_mapping_operation *ops =
+      ralloc_array(NULL, struct mtl_update_sparse_buffer_mapping_operation,
+                   bind->bindCount);
+
+   /* Batch ops by heap, since Metal only allows one heap for a batch */
+   uint32_t curr_op = 0;
+   struct mtl_heap *curr_heap = NULL;
+
+   for (uint32_t i = 0; i < bind->bindCount; ++i) {
+      struct mtl_heap *heap = NULL;
+
+      if (bind->pBinds[i].memory != VK_NULL_HANDLE) {
+         struct kk_device_memory *mem =
+            kk_device_memory_from_handle(bind->pBinds[i].memory);
+         heap = mem->bo->mtl_handle;
+      }
+
+      if (curr_heap != heap && curr_op > 0) {
+         /* Flush pending ops if heap changes */
+         mtl_command_queue_update_buffer_mappings(
+            queue->mtl_handle, buffer->metal.handle, curr_heap, ops, curr_op);
+         curr_op = 0;
+      }
+
+      curr_heap = heap;
+
+      struct mtl_update_sparse_buffer_mapping_operation *op = &ops[curr_op];
+      op->mode = heap ? MTL_SPARSE_TEXTURE_MAPPING_MODE_MAP
+                      : MTL_SPARSE_TEXTURE_MAPPING_MODE_UNMAP;
+      op->buffer_range.offset =
+         bind->pBinds[i].resourceOffset / KK_BUFFER_SPARSE_TILE_SIZE;
+      op->buffer_range.length =
+         bind->pBinds[i].size / KK_BUFFER_SPARSE_TILE_SIZE;
+      op->heap_offset =
+         bind->pBinds[i].memoryOffset / KK_BUFFER_SPARSE_TILE_SIZE;
+
+      ++curr_op;
+   }
+
+   if (curr_op > 0) {
+      /* Flush remaining ops */
+      mtl_command_queue_update_buffer_mappings(
+         queue->mtl_handle, buffer->metal.handle, curr_heap, ops, curr_op);
+   }
+
+   ralloc_free(ops);
+
+   return VK_SUCCESS;
+}
+
+static VkResult
+kk_queue_submit_bind_sparse_memory(struct kk_device *device,
+                                   struct kk_queue *queue,
+                                   struct vk_queue_submit *submission)
+{
+   assert(submission->command_buffer_count == 0);
+
+   for (uint32_t i = 0; i < submission->buffer_bind_count; ++i) {
+      VkResult result =
+         kk_sparse_buffer_bind_memory(queue, submission->buffer_binds + i);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   /* Unsupported */
+   if (submission->image_opaque_bind_count != 0 ||
+       submission->image_bind_count != 0) {
+      return vk_error(&device->vk, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+   }
+
+   return VK_SUCCESS;
+}
+
+static VkResult
 kk_queue_submit(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
 {
    struct kk_queue *queue = container_of(vk_queue, struct kk_queue, vk);
@@ -193,6 +272,13 @@ kk_queue_submit(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
     * work. All resources should have been allocated before submission.
     * Otherwise, users are playing with fire. */
    kk_device_make_resources_resident(dev);
+
+   if (submit->buffer_bind_count || submit->image_bind_count ||
+       submit->image_opaque_bind_count) {
+      VkResult result = kk_queue_submit_bind_sparse_memory(dev, queue, submit);
+      if (result != VK_SUCCESS)
+         return result;
+   }
 
    for (uint32_t i = 0; i < submit->command_buffer_count; ++i) {
       struct kk_cmd_buffer *cmd_buffer =
