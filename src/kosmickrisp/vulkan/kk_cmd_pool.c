@@ -51,6 +51,7 @@ kk_cmd_pool_destroy_bos(struct kk_cmd_pool *pool)
       kk_cmd_bo_destroy(pool, bo);
 
    list_inithead(&pool->free_bos);
+   pool->num_free_bos = 0;
 }
 
 VkResult
@@ -132,8 +133,8 @@ kk_CreateCommandPool(VkDevice _device,
    VK_FROM_HANDLE(kk_device, device, _device);
    struct kk_cmd_pool *pool;
 
-   pool = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*pool), 8,
-                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   pool = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pool), 8,
+                     VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (pool == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 

@@ -58,7 +58,7 @@ kk_cmd_release_resources(struct kk_device *dev, struct kk_cmd_buffer *cmd)
    util_dynarray_clear(&cmd->ts_stage_map);
 }
 
-/* Ends Metal command buffer recording and returns allocator to pool for reuse */
+/* Ends Metal command buffer recording */
 static void
 end_recording(struct kk_cmd_buffer *cmd)
 {
@@ -67,8 +67,6 @@ end_recording(struct kk_cmd_buffer *cmd)
 
    cs_end(cmd);
    mtl_end_command_buffer(cmd->metal.cmd_buf);
-   kk_cmd_pool_return_allocator(kk_cmd_buffer_pool(cmd), cmd->metal.allocator);
-   cmd->metal.allocator = NULL;
 }
 
 static void
@@ -84,8 +82,13 @@ kk_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
    /* Ensure closed command buffer for safe returns to pool */
    end_recording(cmd);
    if (cmd->metal.cmd_buf)
-      kk_cmd_pool_return_cmd_buf(pool, cmd->metal.cmd_buf);
+      mtl_release(cmd->metal.cmd_buf);
    cmd->metal.cmd_buf = NULL;
+
+   if (cmd->metal.allocator) {
+      mtl_release(cmd->metal.allocator);
+      cmd->metal.allocator = NULL;
+   }
 
    mtl_release(cmd->argument_table);
 
@@ -165,6 +168,16 @@ kk_reset_cmd_buffer_internal(struct kk_cmd_buffer *cmd)
    end_recording(cmd);
    kk_cmd_release_resources(dev, cmd);
 
+   if (cmd->metal.cmd_buf) {
+      mtl_release(cmd->metal.cmd_buf);
+      cmd->metal.cmd_buf = NULL;
+   }
+
+   if (cmd->metal.allocator) {
+      mtl_release(cmd->metal.allocator);
+      cmd->metal.allocator = NULL;
+   }
+
    cmd->uploader.bo = NULL;
    cmd->uploader.offset = 0;
 
@@ -198,8 +211,10 @@ kk_BeginCommandBuffer(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(kk_cmd_buffer, cmd, commandBuffer);
    struct kk_cmd_pool *pool = kk_cmd_buffer_pool(cmd);
 
-   /* If this is the first time starting the command buffer allocate Metal
-    * resources */
+   vk_command_buffer_begin(&cmd->vk, pBeginInfo);
+   cmd->one_time_submit =
+      pBeginInfo->flags & VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
    if (cmd->metal.cmd_buf == NULL) {
       cmd->metal.cmd_buf = kk_cmd_pool_get_cmd_buf(pool);
 
@@ -211,12 +226,6 @@ kk_BeginCommandBuffer(VkCommandBuffer commandBuffer,
                                       cmd->vk.base.object_name);
    }
 
-   vk_command_buffer_begin(&cmd->vk, pBeginInfo);
-   cmd->one_time_submit =
-      pBeginInfo->flags & VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-   /* vk_command_buffer_begin will reset the command buffer meaning the
-    * allocator may be returned to the pool. Request a new one. */
    if (cmd->metal.allocator == NULL) {
       cmd->metal.allocator = kk_cmd_pool_get_allocator(pool);
 
@@ -228,7 +237,7 @@ kk_BeginCommandBuffer(VkCommandBuffer commandBuffer,
    return VK_SUCCESS;
 
 fail_allocator:
-   kk_cmd_pool_return_cmd_buf(kk_cmd_buffer_pool(cmd), cmd->metal.cmd_buf);
+   mtl_release(cmd->metal.cmd_buf);
    cmd->metal.cmd_buf = NULL;
 fail_cmd:
    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
