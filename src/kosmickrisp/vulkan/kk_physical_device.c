@@ -204,6 +204,7 @@ kk_get_device_extensions(const struct kk_instance *instance,
 #ifdef KK_USE_WSI_PLATFORM
       .EXT_swapchain_maintenance1 = true,
 #endif
+      .EXT_transform_feedback = true,
       .EXT_vertex_attribute_robustness = true,
 
       .GOOGLE_decorate_string = true,
@@ -512,6 +513,10 @@ kk_get_device_features(
       .shaderSharedFloat32Atomics = true,
       .shaderSharedFloat32AtomicAdd =
          pdev->info.msl_version >= MTL_LANGUAGE_VERSION_4_1,
+
+      /* VK_EXT_transform_feedback */
+      .transformFeedback = true,
+      .geometryStreams = true,
 
       /* VK_EXT_vertex_attribute_robustness */
       .vertexAttributeRobustness = true,
@@ -888,7 +893,7 @@ kk_get_device_properties(
       .maxTransformFeedbackBufferDataSize = 512,
       .maxTransformFeedbackBufferDataStride = 2048,
       .transformFeedbackQueries = true,
-      .transformFeedbackStreamsLinesTriangles = false,
+      .transformFeedbackStreamsLinesTriangles = true,
       .transformFeedbackRasterizationStreamSelect = true,
       .transformFeedbackDraw = true,
 
