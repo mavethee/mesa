@@ -1153,8 +1153,10 @@ kk_compile_shader(struct kk_device *dev, nir_shader *nir,
       NIR_PASS(_, nir, nir_lower_io_to_scalar, nir_var_shader_in, NULL, NULL);
 
       nir_shader *count = NULL, *rast = NULL, *pre_gs = NULL;
+      /* Keeps work that only feeds side effects out of the rasterization VS,
+       * where the GPU watchdog resets long vertex work */
       NIR_PASS(_, nir, poly_nir_lower_gs, &count, &rast, &pre_gs,
-               &shader->info.gs, false);
+               &shader->info.gs, true);
 
       /* Keep these for XFB. KK doesn't expose pipeline statistics. */
       if (shader->info.gs.xfb) {
