@@ -863,9 +863,7 @@ kk_image_plane_bind(struct kk_device *dev, struct kk_image *image,
 
    plane->addr = mem->bo->gpu + *offset_B;
 
-   /* Calculate level offsets now so we can query the first mip tail from the
-    * texture */
-   kk_image_layout_init_level_offsets(dev, &plane->layout, plane->mtl_handle);
+   kk_image_layout_init_level_offsets(dev, &plane->layout);
 
    /* Create auxiliary 2D array texture for 3D images so we can use 2D views of
     * it */

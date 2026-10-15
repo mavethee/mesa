@@ -222,7 +222,6 @@ void kk_image_layout_init(const struct kk_device *dev,
                           struct kk_image_layout *layout);
 
 void kk_image_layout_init_level_offsets(const struct kk_device *dev,
-                                        struct kk_image_layout *layout,
-                                        mtl_texture *texture);
+                                        struct kk_image_layout *layout);
 
 #endif /* KK_IMAGE_LAYOUT_H */

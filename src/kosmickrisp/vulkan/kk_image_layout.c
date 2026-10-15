@@ -205,8 +205,7 @@ kk_image_layout_init(const struct kk_device *dev, const struct vk_image *image,
 
 void
 kk_image_layout_init_level_offsets(const struct kk_device *dev,
-                                   struct kk_image_layout *layout,
-                                   mtl_texture *texture)
+                                   struct kk_image_layout *layout)
 {
    /* Skip if level offsets are not validated for below calculations */
    if (!kk_image_layout_level_offsets_defined(layout))
@@ -235,7 +234,34 @@ kk_image_layout_init_level_offsets(const struct kk_device *dev,
    /* We also add the end offset so we can easily recover the size of a level */
    assert(layout->levels < ARRAY_SIZE(layout->level_offsets_B));
 
-   uint32_t pot_level = mtl_texture_first_mipmap_in_tail(texture);
+   /* Calculate which level the small power-of-two miptree begins at. The
+    * power-of-two miptree is used when either the width or the height is
+    * smaller than a single large tile. Same calculation as HoneyKrisp.
+    *
+    * MTLTexture.firstMipmapInTail is only defined for sparse textures.
+    * macOS 26 always returns 0 if the texture is not sparse so it cannot be
+    * used for non-sparse textures. macOS 27 gives us the value we require for
+    * the computations.
+    */
+   enum pipe_format p_format = layout->format.pipe;
+   uint32_t w_el = util_format_get_nblocksx(p_format, layout->width_px);
+   uint32_t h_el = util_format_get_nblocksy(p_format, layout->height_px);
+   uint32_t bw_px = util_format_get_blockwidth(p_format);
+   uint32_t bh_px = util_format_get_blockheight(p_format);
+   uint32_t pot_level = 0;
+   uint32_t pot_w_px = bw_px * w_el;
+   uint32_t pot_h_px = bh_px * h_el;
+   uint32_t max_blocks_w = tile_size_el.x / bw_px;
+   uint32_t max_blocks_h = tile_size_el.y / bh_px;
+   do {
+      uint32_t pot_w_el = util_format_get_nblocksx(p_format, pot_w_px);
+      uint32_t pot_h_el = util_format_get_nblocksy(p_format, pot_h_px);
+      if (pot_w_el < max_blocks_w || pot_h_el < max_blocks_h)
+         break;
+      pot_w_px = u_minify(pot_w_px, 1);
+      pot_h_px = u_minify(pot_h_px, 1);
+      pot_level++;
+   } while (1);
 
    for (uint8_t level = 0; level < layout->levels; ++level) {
       calc_layout.width_px = u_minify(layout->width_px, level);
