@@ -199,8 +199,9 @@ setup_xfb_buffer(global struct poly_geometry_params *p, uint i, uint stride,
     *    floor(P) <= (stride + size - xfb_offset - output_end)
     *                 // (stride * verts_per_prim)
     */
-   int numer_s = p->xfb_size[i] + (stride - max_output_end) - xfb_offset;
-   uint numer = max(numer_s, 0);
+   int64_t numer_s =
+      (int64_t)p->xfb_size[i] + stride - max_output_end - xfb_offset;
+   uint64_t numer = max(numer_s, (int64_t)0);
    return numer / (stride * vertices_per_prim);
 }
 
